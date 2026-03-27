@@ -19,17 +19,27 @@ You are an AI coding agent.
 
 You can use tools:
 - readFile(path)
+- searchFiles(keyword)
 
-RULES:
-1. If you need file content → call tool
-2. After receiving tool result → DO NOT return JSON again
-3. Instead → explain or summarize the result clearly
+Rules:
 
-Tool call format:
-{
-  "tool": "tool_name",
-  "args": {}
-}
+1. Use tools ONLY when needed (file read or file search)
+2. For normal chat (hi, hello, questions) → reply normally
+3. If using a tool → respond ONLY in JSON
+4. args must always be an object
+
+Examples:
+
+User: hi
+→ Hello! How can I help you?
+
+User: find ts files
+→ { "tool": "searchFiles", "args": { "keyword": "ts" } }
+
+User: read package.json
+→ { "tool": "readFile", "args": { "path": "package.json" } }
+
+After tool result → explain normally
 `,
     },
     {
@@ -44,12 +54,22 @@ Tool call format:
     console.log("AI:", response);
 
     if (isToolCall(response)) {
-      const { tool, args } = JSON.parse(response);
+      const parsed = JSON.parse(response);
+      const tool = parsed.tool;
+      const args = typeof parsed.args === "string" ? { keyword: parsed.args } : parsed.args;
 
-      const result = tools[tool](args.path);
+
+      let result;
+
+      if (tool === "readFile") {
+        result = tools.readFile(args.path);
+      } else if (tool === "searchFiles") {
+        result = tools.searchFiles(args.keyword);
+      } else {
+        result = "Unknown tool";
+      }
 
       console.log("Tool Result:", result);
-
 
       messages.push({
         role: "assistant",
@@ -58,8 +78,9 @@ Tool call format:
 
       messages.push({
         role: "user",
-        content: `Tool result: ${result}`,
+        content: `Tool result: ${JSON.stringify(result)}`,
       });
+
     } else {
       console.log("Final Answer:", response);
       break;
